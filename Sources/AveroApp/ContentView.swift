@@ -9,6 +9,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 28) {
             header
             recorderCard
+            exportCard
             latestCaptureCard
             statusBar
             Spacer(minLength: 0)
@@ -100,6 +101,76 @@ struct ContentView: View {
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
+    private var exportCard: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Export")
+                .font(.headline)
+                .foregroundStyle(.white)
+
+            fileSelectionRow(
+                title: "Background",
+                fileURL: model.backgroundImageURL,
+                chooseTitle: "Choose Image",
+                chooseAction: model.chooseBackgroundImage,
+                clearAction: model.clearBackgroundImage
+            )
+
+            fileSelectionRow(
+                title: "Song",
+                fileURL: model.musicTrackURL,
+                chooseTitle: "Choose Song",
+                chooseAction: model.chooseMusicTrack,
+                clearAction: model.clearMusicTrack
+            )
+
+            sliderRow(
+                title: "Zoom Scale",
+                value: $model.zoomScale,
+                range: 1.1...2.6,
+                format: "%.2f"
+            )
+
+            sliderRow(
+                title: "Song Volume",
+                value: $model.musicVolume,
+                range: 0...1,
+                format: "%.2f"
+            )
+
+            sliderRow(
+                title: "Source Audio",
+                value: $model.sourceAudioVolume,
+                range: 0...1,
+                format: "%.2f"
+            )
+
+            HStack(spacing: 12) {
+                Button("Export MP4") {
+                    Task {
+                        await model.exportLatestCapture()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(model.latestArtifact == nil || model.isRecording)
+
+                Button("Reveal Export") {
+                    model.revealLatestExport()
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.lastExportURL == nil)
+            }
+
+            if let lastExportURL = model.lastExportURL {
+                Text(lastExportURL.path)
+                    .textSelection(.enabled)
+                    .foregroundStyle(.white.opacity(0.72))
+            }
+        }
+        .padding(22)
+        .background(.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
     private var statusBar: some View {
         Text(model.status)
             .padding(.horizontal, 16)
@@ -135,6 +206,11 @@ struct ContentView: View {
             } else {
                 interactionList(for: artifact.interactions)
             }
+
+            Button("Reveal Raw Capture") {
+                model.revealLatestCapture()
+            }
+            .buttonStyle(.bordered)
         }
     }
 
@@ -155,5 +231,50 @@ struct ContentView: View {
         let x = String(format: "%.2f", interaction.location.x)
         let y = String(format: "%.2f", interaction.location.y)
         return "\(index + 1). \(timestamp)s at (\(x), \(y))"
+    }
+
+    private func fileSelectionRow(
+        title: String,
+        fileURL: URL?,
+        chooseTitle: String,
+        chooseAction: @escaping () -> Void,
+        clearAction: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .foregroundStyle(.white)
+
+            HStack(spacing: 12) {
+                Button(chooseTitle, action: chooseAction)
+                    .buttonStyle(.bordered)
+
+                Button("Clear", action: clearAction)
+                    .buttonStyle(.bordered)
+                    .disabled(fileURL == nil)
+            }
+
+            Text(fileURL?.lastPathComponent ?? "Not selected")
+                .foregroundStyle(.white.opacity(0.72))
+        }
+    }
+
+    private func sliderRow(
+        title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        format: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title)
+                    .foregroundStyle(.white)
+                Spacer()
+                Text(String(format: format, value.wrappedValue))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .font(.system(.body, design: .monospaced))
+            }
+
+            Slider(value: value, in: range)
+        }
     }
 }
