@@ -28,7 +28,7 @@ final class AppModel: ObservableObject {
             self.displays = displays
             self.selectedDisplayID = self.selectedDisplayID ?? displays.first?.id
             status = displays.isEmpty
-                ? "No shareable displays were found."
+                ? "No displays found. Grant screen recording permission in System Settings → Privacy & Security → Screen & System Audio Recording, then relaunch."
                 : "Select a display and start recording."
         } catch {
             status = error.localizedDescription

@@ -6,15 +6,17 @@ struct ContentView: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 28) {
-            header
-            recorderCard
-            exportCard
-            latestCaptureCard
-            statusBar
-            Spacer(minLength: 0)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                header
+                recorderCard
+                exportCard
+                latestCaptureCard
+                statusBar
+            }
+            .padding(28)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(28)
         .background(
             LinearGradient(
                 colors: [

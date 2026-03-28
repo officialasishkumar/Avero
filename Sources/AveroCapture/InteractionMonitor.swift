@@ -61,7 +61,7 @@ final class InteractionMonitor {
         }
 
         let relativeX = (location.x - activeDisplay.frame.minX) / max(activeDisplay.frame.width, 1)
-        let relativeY = (location.y - activeDisplay.frame.minY) / max(activeDisplay.frame.height, 1)
+        let relativeY = 1.0 - (location.y - activeDisplay.frame.minY) / max(activeDisplay.frame.height, 1)
         let timestamp = ProcessInfo.processInfo.systemUptime - recordingStartUptime
 
         interactions.append(
