@@ -1,3 +1,4 @@
+import AVKit
 import AveroCore
 import Foundation
 import SwiftUI
@@ -5,53 +6,51 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var model: AppModel
 
+    private let accentPurple = Color(red: 0.55, green: 0.36, blue: 0.96)
+    private let surfaceDark = Color(nsColor: NSColor(red: 0.09, green: 0.09, blue: 0.10, alpha: 1))
+    private let surfaceSidebar = Color(nsColor: NSColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1))
+    private let surfaceCard = Color(nsColor: NSColor(red: 0.14, green: 0.14, blue: 0.15, alpha: 1))
+    private let canvasBg = Color(nsColor: NSColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1))
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                header
-                recorderCard
-                exportCard
-                latestCaptureCard
-                statusBar
+        VStack(spacing: 0) {
+            toolbar
+            Divider()
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    previewArea
+                    Divider()
+                    timelineArea
+                        .frame(height: 72)
+                }
+                Divider()
+                sidebar
+                    .frame(width: 280)
             }
-            .padding(28)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Divider()
+            statusBar
         }
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.12, green: 0.14, blue: 0.16),
-                    Color(red: 0.06, green: 0.07, blue: 0.09),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
+        .background(surfaceDark)
+        .preferredColorScheme(.dark)
         .task {
             await model.refreshDisplays()
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Avero")
-                .font(.system(size: 42, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-            Text("Record a display now. Automatic zoom events are captured from your clicks and fed into the export pipeline.")
-                .font(.title3)
-                .foregroundStyle(.white.opacity(0.72))
-        }
-    }
+    // MARK: - Toolbar
 
-    private var recorderCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Recorder")
-                .font(.headline)
+    private var toolbar: some View {
+        HStack(spacing: 16) {
+            Text("Avero")
+                .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
+
+            Divider()
+                .frame(height: 20)
 
             Picker("Display", selection: $model.selectedDisplayID) {
                 if model.displays.isEmpty {
-                    Text("No displays available").tag(UInt32?.none)
+                    Text("No displays").tag(UInt32?.none)
                 } else {
                     ForEach(model.displays) { display in
                         Text(display.name).tag(UInt32?.some(display.id))
@@ -59,224 +58,364 @@ struct ContentView: View {
                 }
             }
             .pickerStyle(.menu)
+            .frame(width: 180)
             .disabled(model.isRecording)
 
-            HStack(spacing: 12) {
-                Button("Refresh Displays") {
-                    Task {
-                        await model.refreshDisplays()
-                    }
-                }
-                .buttonStyle(.bordered)
-
-                Button(model.isRecording ? "Recording…" : "Start Recording") {
-                    Task {
-                        await model.startRecording()
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(model.isRecording || model.selectedDisplayID == nil)
-
-                Button("Stop Recording") {
-                    Task {
-                        await model.stopRecording()
-                    }
-                }
-                .buttonStyle(.bordered)
-                .disabled(!model.isRecording)
+            Button {
+                Task { await model.refreshDisplays() }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 12))
             }
-        }
-        .padding(22)
-        .background(.white.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-    }
+            .buttonStyle(.borderless)
+            .disabled(model.isRecording)
 
-    private var latestCaptureCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Latest Capture")
-                .font(.headline)
-                .foregroundStyle(.white)
-            latestCaptureDetails
-        }
-        .padding(22)
-        .background(.white.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-    }
+            Spacer()
 
-    private var exportCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Export")
-                .font(.headline)
-                .foregroundStyle(.white)
-
-            fileSelectionRow(
-                title: "Background",
-                fileURL: model.backgroundImageURL,
-                chooseTitle: "Choose Image",
-                chooseAction: model.chooseBackgroundImage,
-                clearAction: model.clearBackgroundImage
-            )
-
-            fileSelectionRow(
-                title: "Song",
-                fileURL: model.musicTrackURL,
-                chooseTitle: "Choose Song",
-                chooseAction: model.chooseMusicTrack,
-                clearAction: model.clearMusicTrack
-            )
-
-            sliderRow(
-                title: "Zoom Scale",
-                value: $model.zoomScale,
-                range: 1.1...2.6,
-                format: "%.2f"
-            )
-
-            sliderRow(
-                title: "Song Volume",
-                value: $model.musicVolume,
-                range: 0...1,
-                format: "%.2f"
-            )
-
-            sliderRow(
-                title: "Source Audio",
-                value: $model.sourceAudioVolume,
-                range: 0...1,
-                format: "%.2f"
-            )
-
-            HStack(spacing: 12) {
-                Button("Export MP4") {
-                    Task {
-                        await model.exportLatestCapture()
-                    }
+            if model.isRecording {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(.red)
+                        .frame(width: 8, height: 8)
+                    Text("Recording")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.red)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(model.latestArtifact == nil || model.isRecording)
-
-                Button("Reveal Export") {
-                    model.revealLatestExport()
-                }
-                .buttonStyle(.bordered)
-                .disabled(model.lastExportURL == nil)
             }
 
-            if let lastExportURL = model.lastExportURL {
-                Text(lastExportURL.path)
-                    .textSelection(.enabled)
-                    .foregroundStyle(.white.opacity(0.72))
+            recordButton
+            stopButton
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(surfaceSidebar)
+    }
+
+    private var recordButton: some View {
+        Button {
+            Task { await model.startRecording() }
+        } label: {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(model.isRecording || model.selectedDisplayID == nil ? .gray : .red)
+                    .frame(width: 9, height: 9)
+                Text("Record")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.bordered)
+        .disabled(model.isRecording || model.selectedDisplayID == nil)
+    }
+
+    private var stopButton: some View {
+        Button {
+            Task { await model.stopRecording() }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "stop.fill")
+                    .font(.system(size: 8))
+                Text("Stop")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.bordered)
+        .disabled(!model.isRecording)
+    }
+
+    // MARK: - Preview Area
+
+    private var previewArea: some View {
+        ZStack {
+            canvasBg
+
+            if let player = model.previewPlayer {
+                VideoPlayer(player: player)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .shadow(color: .black.opacity(0.6), radius: 24, y: 4)
+                    .padding(48)
+            } else {
+                VStack(spacing: 14) {
+                    Image(systemName: model.isRecording ? "record.circle" : "play.rectangle")
+                        .font(.system(size: 44, weight: .thin))
+                        .foregroundStyle(.white.opacity(0.15))
+                    Text(model.isRecording ? "Recording in progress…" : "Record a clip to preview")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white.opacity(0.25))
+                }
             }
         }
-        .padding(22)
-        .background(.white.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
+
+    // MARK: - Timeline
+
+    private var timelineArea: some View {
+        VStack(spacing: 0) {
+            if let artifact = model.latestArtifact, model.recordingDuration > 0 {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        Text(formatTime(0))
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.4))
+
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(.white.opacity(0.08))
+                                    .frame(height: 6)
+
+                                ForEach(artifact.interactions) { event in
+                                    let x = max(0, min(
+                                        CGFloat(event.timestamp / model.recordingDuration) * geo.size.width,
+                                        geo.size.width
+                                    ))
+                                    Circle()
+                                        .fill(accentPurple)
+                                        .frame(width: 10, height: 10)
+                                        .shadow(color: accentPurple.opacity(0.5), radius: 4)
+                                        .position(x: x, y: geo.size.height / 2)
+                                }
+                            }
+                        }
+                        .frame(height: 20)
+
+                        Text(formatTime(model.recordingDuration))
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.4))
+                    }
+
+                    Text("\(artifact.interactions.count) zoom point\(artifact.interactions.count == 1 ? "" : "s") captured")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.35))
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+            } else {
+                HStack {
+                    Spacer()
+                    Text(model.isRecording ? "Zoom points will appear here when you click" : "No recording yet")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.25))
+                    Spacer()
+                }
+                .padding(.vertical, 14)
+            }
+        }
+        .background(surfaceDark)
+    }
+
+    // MARK: - Sidebar
+
+    private var sidebar: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                sidebarSection("Background") {
+                    filePickerRow(
+                        "Choose Image",
+                        icon: "photo",
+                        fileName: model.backgroundImageURL?.lastPathComponent,
+                        chooseAction: model.chooseBackgroundImage,
+                        clearAction: model.clearBackgroundImage
+                    )
+                }
+
+                sidebarSection("Audio") {
+                    filePickerRow(
+                        "Choose Music",
+                        icon: "music.note",
+                        fileName: model.musicTrackURL?.lastPathComponent,
+                        chooseAction: model.chooseMusicTrack,
+                        clearAction: model.clearMusicTrack
+                    )
+                    sidebarSlider("Music Volume", value: $model.musicVolume, range: 0...1)
+                    sidebarSlider("Source Audio", value: $model.sourceAudioVolume, range: 0...1)
+                }
+
+                sidebarSection("Zoom") {
+                    sidebarSlider("Scale", value: $model.zoomScale, range: 1.1...2.6, format: "%.1fx")
+                }
+
+                sidebarSection("Style") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Aspect Ratio")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.6))
+
+                        Picker("", selection: $model.aspectRatio) {
+                            ForEach(AspectRatio.allCases, id: \.self) { ratio in
+                                Text(ratio.rawValue).tag(ratio)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                    }
+
+                    sidebarSlider("Corner Radius", value: $model.cornerRadius, range: 0...40, format: "%.0f")
+                    sidebarSlider("Shadow", value: $model.shadowRadius, range: 0...60, format: "%.0f")
+                    sidebarSlider("Padding", value: $model.contentInset, range: 0...200, format: "%.0f")
+                }
+
+                sidebarSection("Export") {
+                    VStack(spacing: 10) {
+                        Button {
+                            Task { await model.exportLatestCapture() }
+                        } label: {
+                            HStack {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 12))
+                                Text("Export MP4")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(accentPurple)
+                        .disabled(model.latestArtifact == nil || model.isRecording || model.isExporting)
+
+                        HStack(spacing: 8) {
+                            Button("Reveal Capture") {
+                                model.revealLatestCapture()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .disabled(model.latestArtifact == nil)
+
+                            Button("Reveal Export") {
+                                model.revealLatestExport()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .disabled(model.lastExportURL == nil)
+                        }
+                        .font(.system(size: 11))
+
+                        if let lastExportURL = model.lastExportURL {
+                            Text(lastExportURL.lastPathComponent)
+                                .font(.system(size: 10))
+                                .foregroundStyle(.white.opacity(0.35))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                    }
+                }
+            }
+            .padding(.top, 4)
+        }
+        .background(surfaceSidebar)
+    }
+
+    // MARK: - Status Bar
 
     private var statusBar: some View {
-        Text(model.status)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .foregroundStyle(.white.opacity(0.88))
+        HStack(spacing: 8) {
+            if model.isExporting {
+                ProgressView()
+                    .controlSize(.small)
+                    .scaleEffect(0.7)
+            }
+
+            Text(model.status)
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.55))
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(surfaceSidebar)
     }
+
+    // MARK: - Sidebar Helpers
 
     @ViewBuilder
-    private var latestCaptureDetails: some View {
-        if let latestArtifact = model.latestArtifact {
-            latestCaptureSummary(for: latestArtifact)
-        } else {
-            Text("Record once to create a raw clip and click map.")
-                .foregroundStyle(.white.opacity(0.72))
-        }
-    }
-
-    private func latestCaptureSummary(for artifact: CaptureArtifact) -> some View {
+    private func sidebarSection<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(artifact.rawRecordingURL.path)
-                .textSelection(.enabled)
-                .foregroundStyle(.white.opacity(0.72))
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.4))
+                .textCase(.uppercase)
+                .tracking(0.8)
 
-            Text("Interactions: \(artifact.interactions.count)")
-                .foregroundStyle(.white)
+            content()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
 
-            if artifact.interactions.isEmpty {
-                Text("No click events were captured in this recording.")
-                    .foregroundStyle(.white.opacity(0.72))
-            } else {
-                interactionList(for: artifact.interactions)
+        Divider()
+            .padding(.horizontal, 12)
+    }
+
+    private func sidebarSlider(
+        _ title: String,
+        value: Binding<Double>,
+        range: ClosedRange<Double>,
+        format: String = "%.2f"
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.6))
+                Spacer()
+                Text(String(format: format, value.wrappedValue))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.35))
             }
-
-            Button("Reveal Raw Capture") {
-                model.revealLatestCapture()
-            }
-            .buttonStyle(.bordered)
+            Slider(value: value, in: range)
+                .controlSize(.small)
         }
     }
 
-    private func interactionList(for interactions: [InteractionEvent]) -> some View {
-        let preview = Array(interactions.prefix(6))
-
-        return VStack(alignment: .leading, spacing: 6) {
-            ForEach(preview.indices, id: \.self) { index in
-                Text(interactionLine(index: index, interaction: preview[index]))
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.72))
-            }
-        }
-    }
-
-    private func interactionLine(index: Int, interaction: InteractionEvent) -> String {
-        let timestamp = String(format: "%.2f", interaction.timestamp)
-        let x = String(format: "%.2f", interaction.location.x)
-        let y = String(format: "%.2f", interaction.location.y)
-        return "\(index + 1). \(timestamp)s at (\(x), \(y))"
-    }
-
-    private func fileSelectionRow(
-        title: String,
-        fileURL: URL?,
-        chooseTitle: String,
+    private func filePickerRow(
+        _ buttonTitle: String,
+        icon: String,
+        fileName: String?,
         chooseAction: @escaping () -> Void,
         clearAction: @escaping () -> Void
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .foregroundStyle(.white)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Button(action: chooseAction) {
+                    Label(buttonTitle, systemImage: icon)
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
 
-            HStack(spacing: 12) {
-                Button(chooseTitle, action: chooseAction)
-                    .buttonStyle(.bordered)
-
-                Button("Clear", action: clearAction)
-                    .buttonStyle(.bordered)
-                    .disabled(fileURL == nil)
+                if fileName != nil {
+                    Button(action: clearAction) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.4))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
-            Text(fileURL?.lastPathComponent ?? "Not selected")
-                .foregroundStyle(.white.opacity(0.72))
+            if let fileName {
+                Text(fileName)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.35))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
         }
     }
 
-    private func sliderRow(
-        title: String,
-        value: Binding<Double>,
-        range: ClosedRange<Double>,
-        format: String
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title)
-                    .foregroundStyle(.white)
-                Spacer()
-                Text(String(format: format, value.wrappedValue))
-                    .foregroundStyle(.white.opacity(0.72))
-                    .font(.system(.body, design: .monospaced))
-            }
+    // MARK: - Formatting
 
-            Slider(value: value, in: range)
-        }
+    private func formatTime(_ seconds: TimeInterval) -> String {
+        let mins = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%d:%02d", mins, secs)
     }
 }

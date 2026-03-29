@@ -91,9 +91,28 @@ public struct ZoomSnapshot: Hashable, Sendable {
     public static let `default` = ZoomSnapshot(center: .center, zoomScale: 1)
 }
 
+public enum AspectRatio: String, CaseIterable, Hashable, Sendable {
+    case widescreen = "16:9"
+    case vertical = "9:16"
+    case square = "1:1"
+    case classic = "4:3"
+
+    public var outputSize: CGSize {
+        switch self {
+        case .widescreen: CGSize(width: 1920, height: 1080)
+        case .vertical: CGSize(width: 1080, height: 1920)
+        case .square: CGSize(width: 1080, height: 1080)
+        case .classic: CGSize(width: 1440, height: 1080)
+        }
+    }
+}
+
 public struct StyledExportOptions: Hashable, Sendable {
     public var outputSize: CGSize
     public var contentInset: CGFloat
+    public var cornerRadius: CGFloat
+    public var shadowRadius: CGFloat
+    public var shadowOpacity: Float
     public var backgroundImageURL: URL?
     public var musicTrackURL: URL?
     public var sourceAudioVolume: Float
@@ -103,6 +122,9 @@ public struct StyledExportOptions: Hashable, Sendable {
     public init(
         outputSize: CGSize = CGSize(width: 1920, height: 1080),
         contentInset: CGFloat = 96,
+        cornerRadius: CGFloat = 12,
+        shadowRadius: CGFloat = 24,
+        shadowOpacity: Float = 0.5,
         backgroundImageURL: URL? = nil,
         musicTrackURL: URL? = nil,
         sourceAudioVolume: Float = 1,
@@ -111,6 +133,9 @@ public struct StyledExportOptions: Hashable, Sendable {
     ) {
         self.outputSize = outputSize
         self.contentInset = contentInset
+        self.cornerRadius = cornerRadius
+        self.shadowRadius = shadowRadius
+        self.shadowOpacity = shadowOpacity
         self.backgroundImageURL = backgroundImageURL
         self.musicTrackURL = musicTrackURL
         self.sourceAudioVolume = sourceAudioVolume

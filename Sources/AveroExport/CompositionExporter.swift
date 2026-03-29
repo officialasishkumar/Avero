@@ -181,16 +181,28 @@ public final class CompositionExporter {
         videoComposition.instructions = [instruction]
         videoComposition.animationTool = makeAnimationTool(
             canvasRect: canvasRect,
-            backgroundImageURL: options.backgroundImageURL
+            contentFrame: contentFrame,
+            backgroundImageURL: options.backgroundImageURL,
+            cornerRadius: options.cornerRadius,
+            shadowRadius: options.shadowRadius,
+            shadowOpacity: options.shadowOpacity
         )
         return videoComposition
     }
 
-    private func makeAnimationTool(canvasRect: CGRect, backgroundImageURL: URL?) -> AVVideoCompositionCoreAnimationTool {
+    private func makeAnimationTool(
+        canvasRect: CGRect,
+        contentFrame: CGRect,
+        backgroundImageURL: URL?,
+        cornerRadius: CGFloat,
+        shadowRadius: CGFloat,
+        shadowOpacity: Float
+    ) -> AVVideoCompositionCoreAnimationTool {
         let parentLayer = CALayer()
         parentLayer.frame = canvasRect
         parentLayer.backgroundColor = NSColor(calibratedRed: 0.07, green: 0.08, blue: 0.11, alpha: 1).cgColor
 
+        // Background
         let backgroundLayer = CALayer()
         backgroundLayer.frame = canvasRect
         backgroundLayer.contentsGravity = .resizeAspectFill
@@ -215,8 +227,50 @@ public final class CompositionExporter {
             parentLayer.addSublayer(backgroundLayer)
         }
 
+        // Shadow layer behind the video
+        if shadowOpacity > 0 && shadowRadius > 0 {
+            let shadowHost = CALayer()
+            shadowHost.frame = canvasRect
+            shadowHost.shadowColor = NSColor.black.cgColor
+            shadowHost.shadowOffset = .zero
+            shadowHost.shadowRadius = shadowRadius
+            shadowHost.shadowOpacity = shadowOpacity
+            shadowHost.shadowPath = CGPath(
+                roundedRect: contentFrame,
+                cornerWidth: cornerRadius,
+                cornerHeight: cornerRadius,
+                transform: nil
+            )
+
+            let shadowFill = CAShapeLayer()
+            shadowFill.frame = canvasRect
+            shadowFill.path = CGPath(
+                roundedRect: contentFrame,
+                cornerWidth: cornerRadius,
+                cornerHeight: cornerRadius,
+                transform: nil
+            )
+            shadowFill.fillColor = NSColor.black.cgColor
+            shadowHost.addSublayer(shadowFill)
+            parentLayer.addSublayer(shadowHost)
+        }
+
+        // Video layer with rounded corner mask
         let videoLayer = CALayer()
         videoLayer.frame = canvasRect
+
+        if cornerRadius > 0 {
+            let maskLayer = CAShapeLayer()
+            maskLayer.frame = canvasRect
+            maskLayer.path = CGPath(
+                roundedRect: contentFrame,
+                cornerWidth: cornerRadius,
+                cornerHeight: cornerRadius,
+                transform: nil
+            )
+            videoLayer.mask = maskLayer
+        }
+
         parentLayer.addSublayer(videoLayer)
 
         return AVVideoCompositionCoreAnimationTool(
