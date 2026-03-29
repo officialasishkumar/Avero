@@ -1,6 +1,7 @@
-import AVKit
+import AVFoundation
 import AveroCore
 import Foundation
+import QuartzCore
 import SwiftUI
 
 struct ContentView: View {
@@ -133,7 +134,7 @@ struct ContentView: View {
             canvasBg
 
             if let player = model.previewPlayer {
-                VideoPlayer(player: player)
+                PlayerView(player: player)
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .shadow(color: .black.opacity(0.6), radius: 24, y: 4)
                     .padding(48)
@@ -417,5 +418,42 @@ struct ContentView: View {
         let mins = Int(seconds) / 60
         let secs = Int(seconds) % 60
         return String(format: "%d:%02d", mins, secs)
+    }
+}
+
+// MARK: - AVPlayerLayer-based Preview (avoids AVKit crash in SPM executables)
+
+private struct PlayerView: NSViewRepresentable {
+    let player: AVPlayer
+
+    func makeNSView(context: Context) -> PlayerNSView {
+        let view = PlayerNSView()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspect
+        return view
+    }
+
+    func updateNSView(_ nsView: PlayerNSView, context: Context) {
+        nsView.playerLayer.player = player
+    }
+}
+
+private final class PlayerNSView: NSView {
+    let playerLayer = AVPlayerLayer()
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.addSublayer(playerLayer)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError()
+    }
+
+    override func layout() {
+        super.layout()
+        playerLayer.frame = bounds
     }
 }
